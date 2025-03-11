@@ -18,12 +18,12 @@ def fetch_data():
         password=DB_PASSWORD
     )
     cursor = conn.cursor()
-    cursor.execute("SELECT timestamp, value FROM sensor_data;")
+    cursor.execute("SELECT date, amount FROM transactions;")
     data = cursor.fetchall()
     cursor.close()
     conn.close()
 
-    df = pd.DataFrame(data, columns=["timestamp", "value"])
+    df = pd.DataFrame(data, columns=["date", "amount"])
     return df
 
 # Create Flask server
@@ -35,6 +35,9 @@ app = dash.Dash(__name__, server=server, routes_pathname_prefix='/')
 # Fetch data
 df = fetch_data()
 
+# Limit to first 100 rows
+df = df.head(100)  # Select the first 100 rows
+
 # Dash Layout
 app.layout = html.Div([
     html.H1("Live Data from PostgreSQL"),
@@ -42,9 +45,9 @@ app.layout = html.Div([
         id="database-graph",
         figure={
             "data": [
-                {"x": df["timestamp"], "y": df["value"], "type": "line", "name": "Sensor Data"}
+                {"x": df["date"], "y": df["amount"], "type": "line", "name": "Transaction Amount"}
             ],
-            "layout": {"title": "Sensor Data Over Time"}
+            "layout": {"title": "Transaction Amount Over Time"}
         }
     )
 ])
