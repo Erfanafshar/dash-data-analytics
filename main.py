@@ -93,8 +93,25 @@ customer_summary = df.groupby("customer_id").agg(
     anomaly_status=("anomaly_status", lambda x: "Anomaly" if "Anomaly" in x.values else "Normal")
 ).reset_index()
 
+import plotly.graph_objects as go
 
 
+def get_transaction_history(customer_id):
+    customer_data = df[df["customer_id"] == customer_id].sort_values("date")
+    if customer_data.empty:
+        return go.Figure()  # Return an empty figure if no transactions
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=customer_data["date"],
+        y=customer_data["amount"],
+        mode="lines+markers",
+        name="Transaction History"
+    ))
+
+    fig.update_layout(title="Transaction History Over Time", xaxis_title="Date", yaxis_title="Amount ($)")
+
+    return fig
 
 
 # Compute Overview Metrics
@@ -110,8 +127,14 @@ type_counts.columns = ['Transaction Type', 'Count']
 pie_chart = px.pie(type_counts, names='Transaction Type', values='Count', title='Credit vs Debit Distribution')
 
 # Layout Structure
-app.layout = html.Div([
-    html.H1("Financial Transaction Dashboard"),
+app.layout = html.Div(style={
+                        "display": "grid",
+                        "grid-template-columns": "1fr 1fr",
+                        "gap": "20px",
+                        "background-color": "black",  # Set background to black
+                        "color": "white",  # Set text to white for visibility
+                        "padding": "20px"
+                    }, children=[
 
     # Overview Panel
     html.Div([
@@ -119,14 +142,14 @@ app.layout = html.Div([
         html.P(f"Total Transactions: {total_transactions}"),
         html.P(f"Total Amount Spent: ${total_spent:,.2f}"),
         dcc.Graph(figure=pie_chart)
-    ], id='overview-panel'),
+    ], id='overview-panel', style={"border": "1px solid #ddd", "padding": "10px", "border-radius": "5px"}),
 
 
     # Customer Segmentation Panel
     html.Div([
         html.H2("Customer Segmentation Panel"),
         dcc.Graph(figure=segmentation_fig)
-    ], id='customer-segmentation-panel'),
+    ], id='customer-segmentation-panel', style={"border": "1px solid #ddd", "padding": "10px", "border-radius": "5px"}),
 
 
     # Anomaly Detection Panel
@@ -143,7 +166,7 @@ app.layout = html.Div([
                 ])
             ])
         ], style={"max-height": "400px", "overflow-y": "scroll", "display": "block", "border": "1px solid black"})
-    ], id='anomaly-detection-panel'),
+    ], id='anomaly-detection-panel', style={"border": "1px solid #ddd", "padding": "10px", "border-radius": "5px"}),
 
     # Interactive Customer Search Panel
     html.Div([
@@ -151,31 +174,38 @@ app.layout = html.Div([
 
         # Search Input
         html.Label("Enter Customer ID:"),
-        dcc.Input(id='customer-id-input', type='number', placeholder="Enter customer ID", debounce=True),
+        dcc.Input(id='customer-id-input', type='number',  value=1, placeholder="Enter customer ID", debounce=True),
 
         # Output display
-        html.Div(id='customer-info-output')
-    ], id='customer-search-panel'),
+        html.Div(id='customer-info-output'),
+
+        dcc.Graph(id="customer-transaction-graph"),
+
+    ], id='customer-search-panel', style={"border": "1px solid #ddd", "padding": "10px", "border-radius": "5px"}),
 
 ])
 
 
 @app.callback(
-    Output('customer-info-output', 'children'),
+    [Output('customer-info-output', 'children'),
+     Output('customer-transaction-graph', 'figure')],
     [Input('customer-id-input', 'value')]
 )
 def update_customer_info(customer_id):
     if customer_id is None or customer_id not in customer_summary["customer_id"].values:
-        return "No data available for this customer."
+        return "No data available for this customer.", go.Figure()
 
     customer_data = customer_summary[customer_summary["customer_id"] == customer_id].iloc[0]
 
-    return html.Div([
+    info_div = html.Div([
         html.P(f"Total Transactions: {customer_data['total_transactions']}"),
         html.P(f"Total Amount Spent: ${customer_data['total_spent']:,.2f}"),
         html.P(f"Credit Ratio: {customer_data['credit_ratio']:.2%}"),
         html.P(f"Anomaly Status: {customer_data['anomaly_status']}")
     ])
+
+    return info_div, get_transaction_history(customer_id)
+
 
 if __name__ == "__main__":
     app.run_server(debug=True)
